@@ -5,11 +5,10 @@ const nodemailer = require("nodemailer")
 const { checkvalidation } = require("../helper/helper");
 const { Validator } = require("node-input-validator");
 const fileUpload = require("express-fileupload");
-const { imageUpload } = require("../helper/helper")
+const {imageUpload} = require("../helper/helper")
 module.exports = {
     signup: async (req, res) => {
         try {
-
             const v = new Validator(req.body, {
                 name: "required",
                 email: "required"
@@ -33,7 +32,7 @@ module.exports = {
                     newImagesArr.push(image);
                 }
                 req.body.image = newImagesArr;
-            }
+            }   
 
             const signup = await users_models.create({
                 name: req.body.name, email: req.body.email, phone_number: req.body.phone_number,
@@ -80,6 +79,21 @@ module.exports = {
             const signin = await users_models.findOne({
                 phone_number: req.body.phone_number
             })
+            if(!signin){
+                return res.json({
+                    message: "Data not found",
+                    staus: 404,
+                    body: {}
+                })
+            }
+
+            else if(signin.isVerified === 0){
+                return res.json({
+                    message: "Not verified!",
+                    status: 400,
+                    body: {}
+                })
+            }
             const token = await tokengenerate(signin._id)
             const updateresult = await users_models.findByIdAndUpdate({
                 _id: signin._id
@@ -104,7 +118,7 @@ module.exports = {
                         return res.json({
                             message: "login success",
                             status: 200,
-                            body: updateresult
+                            body: signin
                         })
                     }
                 }
@@ -192,7 +206,7 @@ module.exports = {
                 });
             }
             if (userOtp == user.otp) {
-                await users_models.findOneAndUpdate({ email: req.body.email }, { otp: 0 }, { new: true })
+                await users_models.findOneAndUpdate({ email: req.body.email }, { otp: 0 },{isVerified:1}, { new: true })
                 return res.json({
                     status: 200,
                     success: true,

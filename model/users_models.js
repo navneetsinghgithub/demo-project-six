@@ -14,6 +14,8 @@ const users_schema = new mongoose.Schema({
         { type: String },
     password:
         { type: String },
+    isVerified:
+        { type: Number, default: 0 },
     token:
         { type: String },
     logintime:

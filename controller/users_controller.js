@@ -279,6 +279,7 @@ module.exports = {
         }
     },
     multiImgUpload: async (req, res) => {
+        console.log("k")
         if (req.files !== null && req.files.image != undefined) {
             var imagesArr = Array.isArray(req.files.image)
                 ? req.files.image

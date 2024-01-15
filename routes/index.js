@@ -14,4 +14,5 @@ router.post("/verifyOtp",controller.verifyOtp)
 router.post("/resend_otp",controller.resend_otp)
 router.post("/multiImgUpload",controller.multiImgUpload)
 router.post("/notification_status",auth,controller.notification_status)
+router.post("/logout",controller.logout)
 module.exports = router;

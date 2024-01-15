@@ -5,7 +5,7 @@ const users_models = require("../model/users_models")
 module.exports = {
     auth: async (req, res, next) => {
         let token
-        
+
         if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
             try {
                 const token = req.headers.authorization.split(" ")[1];
@@ -32,6 +32,12 @@ module.exports = {
                     message: "invalid token"
                 })
             }
+        } else {
+            return res.json({
+                message: "not token",
+                status: 400,
+
+            })
         }
     }
 

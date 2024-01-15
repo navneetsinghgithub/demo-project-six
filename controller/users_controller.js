@@ -5,7 +5,8 @@ const nodemailer = require("nodemailer")
 const { checkvalidation } = require("../helper/helper");
 const { Validator } = require("node-input-validator");
 const fileUpload = require("express-fileupload");
-const {imageUpload} = require("../helper/helper")
+const { imageUpload } = require("../helper/helper");
+const { log } = require("console");
 module.exports = {
     signup: async (req, res) => {
         try {
@@ -17,6 +18,18 @@ module.exports = {
             console.log(error_response, "error_response");
             if (error_response) {
                 return res.json(error_response)
+            }
+
+            const signup1 = await users_models.findOne({
+                email: req.body.email
+            })
+
+            if (signup1) {
+                return res.json({
+                    message: "email already exist",
+                    status: 404,
+                    body: {}
+                })
             }
             const saltround = 10;
             const password = await bcrypt.hash(req.body.password, saltround)
@@ -32,7 +45,10 @@ module.exports = {
                     newImagesArr.push(image);
                 }
                 req.body.image = newImagesArr;
-            }   
+            }
+
+            var otp = Math.floor(1000 + Math.random() * 1100);
+
 
             const signup = await users_models.create({
                 name: req.body.name, email: req.body.email, phone_number: req.body.phone_number,
@@ -41,12 +57,12 @@ module.exports = {
             })
 
 
+
             const token = await tokengenerate(signup._id)
             const updateresult = await users_models.findByIdAndUpdate({
                 _id: signup._id
             }, { token: token.token, logintime: token.time }, { new: true })
 
-            var otp = Math.floor(1000 + Math.random() * 1100);
             console.log(otp, "otp");
             var transport = nodemailer.createTransport({
                 host: "sandbox.smtp.mailtrap.io",
@@ -70,6 +86,7 @@ module.exports = {
                 body: updateresult
             })
 
+
         } catch (error) {
             console.log(error, "error");
         }
@@ -79,7 +96,7 @@ module.exports = {
             const signin = await users_models.findOne({
                 phone_number: req.body.phone_number
             })
-            if(!signin){
+            if (!signin) {
                 return res.json({
                     message: "Data not found",
                     staus: 404,
@@ -87,7 +104,7 @@ module.exports = {
                 })
             }
 
-            else if(signin.isVerified === 0){
+            else if (signin.isVerified === 0) {
                 return res.json({
                     message: "Not verified!",
                     status: 400,
@@ -133,11 +150,14 @@ module.exports = {
             const get_profile = await users_models.findById({
                 _id: req.user._id
             })
-            return res.json({
-                message: "get_profile_success",
-                status: 200,
-                body: get_profile
-            })
+            if (get_profile) {
+                return res.json({
+                    message: "get_profile_success",
+                    status: 200,
+                    body: get_profile
+                })
+            }
+
         } catch (error) {
             console.log(error, "error");
         }
@@ -151,7 +171,7 @@ module.exports = {
                     image: req.body.image, password: req.body.password,
                 }, { new: true })
             return res.json({
-                message: "updated_user_success",
+                message: "updated user success",
                 status: 200,
                 body: edit_profile
             })
@@ -206,7 +226,7 @@ module.exports = {
                 });
             }
             if (userOtp == user.otp) {
-                await users_models.findOneAndUpdate({ email: req.body.email }, { otp: 0 },{isVerified:1}, { new: true })
+                await users_models.findOneAndUpdate({ email: req.body.email }, { otp: 0, isVerified: 1 }, { new: true })
                 return res.json({
                     status: 200,
                     success: true,
@@ -309,6 +329,21 @@ module.exports = {
         return res.json({
             newImagesArr
         })
+    },
+    logout: async (req, res) => {
+        try {
+            const logout = await users_models.findOne({
+                email: req.body.email
+            },
+                { logintime: 0 }, { new: true })
+            return res.json({
+                message: "logout successfully",
+                status: 200,
+                body: logout
+            })
+        } catch (error) {
+            console.log(error, "error");
+        }
     }
 
 }

@@ -3,10 +3,11 @@ const users_models = require("../model/users_models")
 const bcrypt = require("bcrypt")
 const nodemailer = require("nodemailer")
 const { checkvalidation } = require("../helper/helper");
-const { Validator } = require("node-input-validator");
+const { Validator } = require("node-input-validator")
 const fileUpload = require("express-fileupload");
 const { imageUpload } = require("../helper/helper");
-const { log } = require("console");
+const saltRound = 10
+
 module.exports = {
     signup: async (req, res) => {
         try {
@@ -14,10 +15,10 @@ module.exports = {
                 name: "required",
                 email: "required"
             })
-            let error_response = await checkvalidation(v);
-            console.log(error_response, "error_response");
-            if (error_response) {
-                return res.json(error_response)
+            let error_respons = await checkvalidation(v);
+            console.log(error_respons, "error_response");
+            if (error_respons) {
+                return res.json(error_respons)
             }
 
             const signup1 = await users_models.findOne({
@@ -31,8 +32,8 @@ module.exports = {
                     body: {}
                 })
             }
-            const saltround = 10;
-            const password = await bcrypt.hash(req.body.password, saltround)
+
+            const password = await bcrypt.hash(req.body.password, saltRound)
 
 
             if (req.files !== null && req.files.image != undefined) {
@@ -53,7 +54,7 @@ module.exports = {
             const signup = await users_models.create({
                 name: req.body.name, email: req.body.email, phone_number: req.body.phone_number,
                 country: req.body.country, city: req.body.city, town: req.body.town,
-                image: newImagesArr, password: password, otp: otp,
+                image: newImagesArr, password: password, otp: otp, isVerified: req.body.isVerified
             })
 
 
@@ -64,21 +65,21 @@ module.exports = {
             }, { token: token.token, logintime: token.time }, { new: true })
 
             console.log(otp, "otp");
-            var transport = nodemailer.createTransport({
-                host: "sandbox.smtp.mailtrap.io",
-                port: 2525,
-                auth: {
-                    user: "e593fe6d0474e3",
-                    pass: "d769e414fd2629"
-                }
-            });
-            const info = await transport.sendMail({
-                from: "nav123@gmail.com",
-                to: req.body.email,
-                subject: "forget password link",
-                text: "this is your link",
-                html: `${otp}`
-            })
+            // var transport = nodemailer.createTransport({
+            //     host: "sandbox.smtp.mailtrap.io",
+            //     port: 2525,
+            //     auth: {
+            //         user: "e593fe6d0474e3",
+            //         pass: "d769e414fd2629"
+            //     }
+            // });
+            // const info = await transport.sendMail({
+            //     from: "nav123@gmail.com",
+            //     to: req.body.email,
+            //     subject: "forget password link",
+            //     text: "this is your link",
+            //     html: `${otp}`
+            // })
 
             return res.json({
                 message: "add user",
@@ -88,9 +89,15 @@ module.exports = {
 
 
         } catch (error) {
-            console.log(error, "error");
+            console.error("Error: ", error);
+            return res.json({
+                message: "error user not added",
+                status: 400,
+                body: {}
+            });
         }
     },
+
     signin: async (req, res) => {
         try {
             const signin = await users_models.findOne({
@@ -144,6 +151,31 @@ module.exports = {
             console.log(error, "error");
         }
     },
+
+    socialLogin: async (req, res) => {
+        try {
+            const data = await users_models.findOne({ email: req.body.email, socialId: req.body.socialId })
+            if (!data) {
+                let token;
+                var signup = await users_models.create({
+                    name: req.body.name, email: req.body.email, socialId: req.body.socialId, socialType: req.body.socialType
+                })
+                token = await generateToken(signup._id)
+                const updatedResult = await users_models.findByIdAndUpdate({ _id: signup._id }, { token: token.token, loginTime: token.time }, { new: true })
+                return res.json(updatedResult)
+            } else {
+                let token = await generateToken(data._id)
+                const result1 = await users_models.findByIdAndUpdate({ _id: data._id }, {
+                    name: req.body.name, email: req.body.email, socialId: req.body.socialId, socialType: req.body.socialType, token: token.token, loginTime: token.time
+                }, { new: true })
+                return res.json(result1)
+            }
+        } catch (error) {
+            console.log(error)
+        }
+    },
+
+
     get_profile: async (req, res) => {
         try {
 
@@ -162,6 +194,7 @@ module.exports = {
             console.log(error, "error");
         }
     },
+
     edit_profile: async (req, res) => {
         try {
             const edit_profile = await users_models.findByIdAndUpdate({ _id: req.params.id },
@@ -179,6 +212,7 @@ module.exports = {
             console.log(error, "error");
         }
     },
+
     imageupload: async (req, res) => {
         try {
             if (req.files && req.files.image) {
@@ -210,6 +244,7 @@ module.exports = {
             console.log(error, "error");
         }
     },
+
     verifyOtp: async (req, res) => {
         try {
             const { userOtp } = req.body;
@@ -226,7 +261,8 @@ module.exports = {
                 });
             }
             if (userOtp == user.otp) {
-                await users_models.findOneAndUpdate({ email: req.body.email }, { otp: 0, isVerified: 1 }, { new: true })
+                await users_models.findOneAndUpdate({ email: req.body.email },
+                    { otp: 0, isVerified: 1 }, { new: true })
                 return res.json({
                     status: 200,
                     success: true,
@@ -245,16 +281,15 @@ module.exports = {
             console.log(error, "error");
         }
     },
+
     forget_Password: async (req, res) => {
         try {
 
             const data = await users_models.findOne({ email: req.body.email })
-            console.log(data, "dfghjkjhhhhhhhhhhhh");
+            // console.log(data, "dfghjkjhhhhhhhhhhhh");
             var otp = Math.floor(Math.random() * 10000 + 1);
             const user = await users_models.findByIdAndUpdate(
-                {
-                    _id: data._id,
-                },
+                { _id: data._id, },
                 { otp: otp }, { new: true }
             );
             var transport = nodemailer.createTransport({
@@ -279,8 +314,14 @@ module.exports = {
                 body: user
             })
         } catch (error) {
+            return res.json({
+                message: "error forget password",
+                status: 404,
+                body: {}
+            })
         }
     },
+
     resend_otp: async (req, res) => {
         try {
             const otp = Math.floor(1000 + Math.random() * 1100);
@@ -295,9 +336,14 @@ module.exports = {
                 })
             }
         } catch (error) {
-            console.log(error, "error");
+            return res.json({
+                message: "error otp unsuccessful",
+                status: 404,
+                body: {}
+            })
         }
     },
+
     notification_status: async (req, res) => {
         try {
             const notification_status = await users_models.findByIdAndUpdate({
@@ -312,6 +358,7 @@ module.exports = {
             console.log(error, "error");
         }
     },
+
     multiImgUpload: async (req, res) => {
         console.log("k")
         if (req.files !== null && req.files.image != undefined) {
@@ -330,20 +377,88 @@ module.exports = {
             newImagesArr
         })
     },
+
     logout: async (req, res) => {
         try {
-            const logout = await users_models.findOne({
-                email: req.body.email
+            const logout = await users_models.findByIdAndUpdate({
+                _id: req.user._id
             },
                 { logintime: 0 }, { new: true })
+            if (!logout) {
+                return res.json({
+                    message: "you are already logout",
+                    status: 400,
+                    body: {}
+                })
+            }
             return res.json({
                 message: "logout successfully",
                 status: 200,
                 body: logout
             })
         } catch (error) {
-            console.log(error, "error");
+
         }
-    }
+    },
+
+    forgetUpdatePassword: async (req, res) => {
+        try {
+            const userData = await users_models.findOne({ email: req.body.email })
+
+            if (!userData) {
+                return res.json({
+                    message: "Incorrect email!",
+                    status: 400,
+                    body: {}
+                })
+            }
+
+            if (userData.otp != req.body.otp) {
+                return res.json({
+                    message: "Incorrect otp!",
+                    status: 400,
+                    body: {}
+                })
+            }
+
+            const hashPassword = await bcrypt.hash(req.body.password, saltRound)
+            const updatedData = await users_models.findOneAndUpdate({ email: req.body.email },
+                { password: hashPassword }, { new: true })
+            return res.json({
+                message: "Password updated successfully..",
+                status: 400,
+                body: updatedData
+            })
+        } catch (error) {
+            console.log(error)
+        }
+    },
+
+    changePassword: async (req, res) => {
+        try {
+            const data = await users_models.findOne({ _id: req.user._id })
+            const dcryptPassword = await bcrypt.compare(req.body.newPassword, data.password)
+            if (dcryptPassword == false) {
+                return res.json({
+                    message: "Password does not match!",
+                    status: 400,
+                    body: {}
+                })
+            }
+            const encryptPassword = await bcrypt.hash(req.body.newPassword, saltRound)
+            data.password = encryptPassword
+            await data.save()
+            return res.json({
+                message: "Password updated successfuly..",
+                status: 200,
+                body: data
+            })
+
+        } catch (error) {
+            console.log(error)
+        }
+    },
+
+
 
 }

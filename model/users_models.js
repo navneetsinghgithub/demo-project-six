@@ -22,6 +22,8 @@ const users_schema = new mongoose.Schema({
         { type: String },
     otp:
         { type: Number },
+    socialId:
+        { type: String },
     image:
         [{ type: String }],
     notification_status:

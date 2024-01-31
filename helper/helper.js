@@ -2,10 +2,10 @@ const checkvalidation = async (v) => {
   try {
     const matched = await v.check();
     if (!matched) {
-      let error_response = Object.values(v.errors || {})
+      let error_respons = Object.values(v.errors || {})
         .map(error => error.message)
 
-      return error_response.join(",")
+      return error_respons.join(",")
     }
   } catch (error) {
     console.log(error, "validation error");

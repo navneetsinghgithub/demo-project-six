@@ -9,13 +9,13 @@ module.exports = {
         if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
             try {
                 const token = req.headers.authorization.split(" ")[1];
-                console.log(token, "token");
+                // console.log(token, "token");
                 const decode = await jwt.verify(token, secret_key)
-                console.log(decode, "decode");
+                // console.log(decode, "decode");
                 const user = await users_models.findByIdAndUpdate({
                     _id: decode._id, logintime: decode.iat
                 }, { new: true })
-                console.log(user, "user");
+                // console.log(user, "user");
                 if (user) {
                     req.user = user
                     next();
